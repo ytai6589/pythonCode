@@ -1,9 +1,44 @@
 from skpy import Skype
-import sys, getopt
+from skpy import SkypeAuthException
+from skpy import SkypeConnection
+import os, sys, setting 
+import getopt
 
 ProcName = 'sendSkype.py'
-Version = '1.0'
+Version = '1.1'
 Synopsis = '-u <username> -p <password> -g <groupID> -m <message>'
+
+
+def login(username, password, token_file='.tokens-app'):
+    "Login to Skype"
+    sk = Skype(connect=False)
+    sk.conn.setTokenFile(token_file)
+    try:
+        sk.conn.readToken()
+    except SkypeAuthException:
+        # Prompt the user for their credentials.
+        if os.getenv("SKPY_DEBUG_HTTP"):
+            print("==*> RESET USER TOKEN")
+        sk.conn.setUserPwd(username, password)
+        sk.conn.getSkypeToken()
+
+    return sk
+
+
+def post_message(sk, group_id, msg):
+    "Post a message to a given channel"
+    result_flag = False
+    try:
+        sk.conn.verifyToken(SkypeConnection.Auth.SkypeToken)
+        channel = sk.chats[group_id]
+        channel.sendMsg(msg)
+        result_flag = True
+        print("==*> SKPY SEND SUCCESS")
+    except Exception as e:
+        print("==*> SKPY SEND FAILED,", e)
+
+    return result_flag
+
 
 def main(argv):
     userName = ''
@@ -33,9 +68,16 @@ def main(argv):
         elif opt in ("-m"):
             sendMsg = arg
 
-    sk = Skype(userName, userPwd)
-    ch = sk.chats[groupID]
-    ch.sendMsg(sendMsg)
+    print("==*> SKPY_DEBUG_HTTP =", os.getenv("SKPY_DEBUG_HTTP"))
 
+    if os.getenv("SKPY_DEBUG_HTTP"):
+        print("==*> SKPY CONNECT")
+    sk = login(userName, userPwd)
+
+    if os.getenv("SKPY_DEBUG_HTTP"):
+        print("==*> SKPY SEND MESSAGE")
+    post_message(sk, groupID, sendMsg)
+        
+        
 if __name__ == "__main__":
    main(sys.argv[1:])
